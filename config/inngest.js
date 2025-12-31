@@ -2,6 +2,7 @@ import { Inngest } from "inngest";
 import connectDB from "./db";
 import User from "@/models/User";
 import Order from "@/models/Order";
+import Product from "@/models/Product";
 
 // Create a client to send and receive events
 export const inngest = new Inngest({ id: "quickcart-next" });
@@ -83,17 +84,27 @@ export const createUserOrder = inngest.createFunction(
     event: "order/created",
   },
   async ({ events }) => {
-    const orders = events.map((event) => ({
-      userId: event.data.userId,
-      items: event.data.items,
-      amount: event.data.amount,
-      address: event.data.address,
-      date: event.data.date,
-    }));
-
     await connectDB();
+    const orders = [];
+    for (const event of events) {
+      let amount = 0;
+      for (const item of event.data.items) {
+        const product = await Product.findById(item.product);
+        if (product) {
+          amount += product.offerPrice * item.quantity;
+        }
+      }
+      // Add 2% fee as in API
+      amount = amount + Math.floor(amount * 0.02);
+      orders.push({
+        userId: event.data.userId,
+        items: event.data.items,
+        amount,
+        address: event.data.address,
+        date: event.data.date,
+      });
+    }
     await Order.insertMany(orders);
-
     return { success: true, processed: orders.length };
   }
 );
