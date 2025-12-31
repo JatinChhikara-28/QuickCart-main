@@ -20,7 +20,7 @@ export async function GET(request) {
 
         const orders = await Order.find({}).populate('address items.product')
 
-        return NextResponse.json({success:false,message:'not authorized'})
+         return NextResponse.json({ success: true, orders });
     } catch (error) {
         return NextResponse.json({success:false,message:error.message})
     }
