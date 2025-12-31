@@ -6,22 +6,37 @@ import { useAppContext } from "@/context/AppContext";
 import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import Loading from "@/components/Loading";
+import axios from "axios";
 
 const MyOrders = () => {
 
-    const { currency } = useAppContext();
+    const { currency,getToken,user } = useAppContext();
 
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchOrders = async () => {
-        setOrders(orderDummyData)
-        setLoading(false);
+        try {
+            const token = await getToken()
+            const {data} =await axios.get('/api/order/list',{headers:{Authorization:`Bearer ${token}`}})
+
+            if (data.success) {
+                setOrders(data.orders.reverse())
+                setLoading(false)
+            } else{
+                toast.error(data.message)
+            }
+        } catch (error) {
+            toast.error(error.message)
+        }
     }
 
     useEffect(() => {
-        fetchOrders();
-    }, []);
+        if (user) {
+            
+            fetchOrders();
+        }
+    }, [user]);
 
     return (
         <>
@@ -56,7 +71,26 @@ const MyOrders = () => {
                                         <span>{order.address.phoneNumber}</span>
                                     </p>
                                 </div>
-                                <p className="font-medium my-auto">{currency}{order.amount}</p>
+                                <p className="font-medium my-auto">
+                                    {currency}
+                                    {order.amount && order.amount > 0
+                                        ? order.amount
+                                        : (() => {
+                                            // Debug output
+                                            console.log('Order items:', order.items);
+                                            return order.items.reduce((sum, item) => {
+                                                // Try to get offerPrice from product, fallback to 0
+                                                const price = item.product && typeof item.product.offerPrice === 'number'
+                                                    ? item.product.offerPrice
+                                                    : (item.product && typeof item.product.price === 'number' ? item.product.price : 0);
+                                                if (!item.product || typeof item.product.offerPrice !== 'number') {
+                                                    console.warn('Missing offerPrice for item:', item);
+                                                }
+                                                return sum + price * item.quantity;
+                                            }, 0);
+                                        })()
+                                    }
+                                </p>
                                 <div>
                                     <p className="flex flex-col">
                                         <span>Method : COD</span>
